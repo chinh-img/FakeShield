@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FakeShield - Phát hiện tin giả đa phương thức</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <nav class="navbar">
+            <div class="logo">
+                <span class="logo-icon">🛡️</span>
+                <span class="logo-text">FakeShield</span>
+            </div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-tab="analyze">Phân tích</button>
+                <button class="nav-btn" data-tab="history">Lịch sử</button>
+                <button class="nav-btn" data-tab="guide">Hướng dẫn</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Tab Analyze -->
+            <div id="analyzeTab" class="tab-content active">
+                <!-- Dual Input Section -->
+                <div class="dual-input">
+                    <!-- Image Upload Area -->
+                    <div class="upload-card" id="uploadArea">
+                        <div class="upload-icon">📸</div>
+                        <h3>Tải ảnh lên</h3>
+                        <p>Kéo thả hoặc click để chọn ảnh</p>
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <div class="upload-preview" id="imagePreviewContainer" style="display: none;">
+                            <img id="imagePreview" alt="Preview">
+                            <button class="remove-btn" id="removeImageBtn">✕</button>
+                        </div>
+                        <small class="format-hint">Hỗ trợ: JPG, PNG, WEBP (tối đa 10MB)</small>
+                    </div>
+
+                    <!-- Text Input Area -->
+                    <div class="text-card">
+                        <div class="text-header">
+                            <span class="text-icon">📝</span>
+                            <h3>Nhập văn bản hoặc link</h3>
+                        </div>
+                        <textarea id="textInput"
+                            placeholder="Dán nội dung bài báo, status, hoặc link bài viết vào đây..."></textarea>
+                        <div class="text-stats">
+                            <span id="charCount">0</span> ký tự
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analyze Button -->
+                <button class="analyze-btn" id="analyzeBtn">
+                    <span>🔍</span> Phân tích ngay
+                </button>
+
+                <!-- Loading State -->
+                <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Đang phân tích đa phương thức...</p>
+                    <small>Vui lòng chờ trong giây lát</small>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="results-section" style="display: none;">
+                    <h2 class="section-title">📊 Kết quả phân tích</h2>
+
+                    <!-- Three Column Results -->
+                    <div class="results-grid">
+                        <!-- Image Analysis -->
+                        <div class="result-card">
+                            <div class="card-header">
+                                <span class="card-icon">🖼️</span>
+                                <h3>Phân tích ảnh</h3>
+                            </div>
+                            <div class="image-compare">
+                                <div class="compare-item">
+                                    <div class="compare-label">Ảnh gốc</div>
+                                    <img id="resultOriginalImg" class="result-img" alt="Original">
+                                </div>
+                                <div class="compare-item">
+                                    <div class="compare-label">Ảnh ELA <span class="info-tip"
+                                            title="Error Level Analysis: vùng sáng = dấu hiệu chỉnh sửa">ⓘ</span></div>
+                                    <img id="resultElaImg" class="result-img" alt="ELA">
+                                </div>
+                            </div>
+                            <div class="result-badge" id="imageBadge">--</div>
+                            <p class="result-detail" id="imageDetail">--</p>
+                        </div>
+
+                        <!-- Text Analysis -->
+                        <div class="result-card">
+                            <div class="card-header">
+                                <span class="card-icon">📄</span>
+                                <h3>Phân tích văn bản</h3>
+                            </div>
+                            <div class="text-preview" id="textPreview">
+                                <div class="preview-content">--</div>
+                            </div>
+                            <div class="result-badge" id="textBadge">--</div>
+                            <p class="result-detail" id="textDetail">--</p>
+                        </div>
+
+                        <!-- Final Verdict -->
+                        <div class="result-card verdict-card">
+                            <div class="card-header">
+                                <span class="card-icon">🎯</span>
+                                <h3>Phán quyết cuối cùng</h3>
+                            </div>
+                            <div class="verdict-display" id="verdictDisplay">
+                                <div class="verdict-icon">⚖️</div>
+                                <div class="verdict-text">--</div>
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-label">Độ tin cậy</div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="confidenceFill" style="width: 0%;"></div>
+                                </div>
+                                <div class="confidence-value" id="confidenceValue">0%</div>
+                            </div>
+                            <p class="verdict-reason" id="verdictReason">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab History - Hoàn chỉnh -->
+            <div id="historyTab" class="tab-content">
+                <div class="history-container">
+                    <div class="history-header">
+                        <h2>📋 Lịch sử phân tích</h2>
+                        <button id="clearHistoryBtn" class="clear-history-btn">🗑️ Xóa tất cả</button>
+                    </div>
+
+                    <div id="historyList" class="history-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h3>Chưa có lịch sử phân tích</h3>
+                            <p>Hãy phân tích một bài viết hoặc ảnh để lưu lại kết quả</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Guide - Hoàn chỉnh -->
+            <div id="guideTab" class="tab-content">
+                <div class="guide-container">
+                    <h2>📖 Hướng dẫn sử dụng FakeShield</h2>
+
+                    <div class="guide-intro">
+                        <p>FakeShield là công cụ phát hiện tin giả đa phương thức, sử dụng AI để phân tích cả
+                            <strong>văn bản</strong> và <strong>hình ảnh</strong>.</p>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>🎯 Cách sử dụng</h3>
+
+                        <div class="guide-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <strong>Tải ảnh lên (tuỳ chọn)</strong>
+                                <p>Kéo thả hoặc click vào vùng tải ảnh để chọn ảnh cần kiểm tra. Hỗ trợ định dạng JPG,
+                                    PNG, WEBP (tối đa 10MB).</p>
+                                <div class="step-tip">💡 Mẹo: Ảnh càng rõ nét, kết quả càng chính xác.</div>
+                            </div>
+                        </div>
+
+                        <div class="guide-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <strong>Nhập văn bản (tuỳ chọn)</strong>
+                                <p>Dán nội dung bài báo, status mạng xã hội hoặc link bài viết vào ô văn bản.</p>
+                                <div class="step-tip">💡 Mẹo: Có thể chỉ phân tích ảnh hoặc chỉ phân tích văn bản.</div>
+                            </div>
+                        </div>
+
+                        <div class="guide-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <strong>Nhấn "Phân tích ngay"</strong>
+                                <p>Hệ thống sẽ xử lý và hiển thị kết quả bao gồm: phân tích ảnh (ELA), phân tích văn bản
+                                    và phán quyết cuối cùng.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>🔬 Công nghệ sử dụng</h3>
+                        <div class="tech-grid">
+                            <div class="tech-card">
+                                <div class="tech-icon">📝</div>
+                                <h4>Phân loại văn bản</h4>
+                                <p>Sử dụng mô hình <strong>BERT (DistilBERT)</strong> được fine-tune trên dataset ISOT
+                                    Fake News với độ chính xác >95%.</p>
+                            </div>
+                            <div class="tech-card">
+                                <div class="tech-icon">🖼️</div>
+                                <h4>Phát hiện ảnh chỉnh sửa</h4>
+                                <p>Sử dụng kỹ thuật <strong>Error Level Analysis (ELA)</strong> kết hợp với mạng CNN,
+                                    phát hiện các vùng ảnh bị photoshop.</p>
+                            </div>
+                            <div class="tech-card">
+                                <div class="tech-icon">🧠</div>
+                                <h4>Kết hợp đa phương thức</h4>
+                                <p>Tổng hợp kết quả từ cả hai module để đưa ra phán quyết cuối cùng với độ tin cậy cao.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>📊 Giải thích kết quả</h3>
+                        <table class="result-table">
+                            <tr>
+                                <th>Kết quả</th>
+                                <th>Ý nghĩa</th>
+                                <th>Khuyến nghị</th>
+                            </tr>
+                            <tr>
+                                <td><span class="badge-real">TIN THẬT</span></td>
+                                <td>Nội dung và hình ảnh đều hợp lệ</td>
+                                <td>Có thể tin tưởng</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge-fake">TIN GIẢ</span></td>
+                                <td>Phát hiện dấu hiệu giả mạo</td>
+                                <td>Nên kiểm chứng từ nguồn khác</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge-suspicious">CẦN XÁC MINH</span></td>
+                                <td>Kết quả không rõ ràng</td>
+                                <td>Cần thêm thông tin để kết luận</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>❓ Câu hỏi thường gặp</h3>
+                        <div class="faq-item">
+                            <div class="faq-question">🔹 Có cần cung cấp cả ảnh và văn bản không?</div>
+                            <div class="faq-answer">Không. Bạn có thể chỉ cung cấp ảnh hoặc chỉ cung cấp văn bản. Hệ
+                                thống vẫn phân tích và đưa ra kết luận dựa trên dữ liệu có sẵn.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">🔹 Độ chính xác của công cụ là bao nhiêu?</div>
+                            <div class="faq-answer">Mô hình phân loại văn bản đạt độ chính xác >95% trên tập test. Mô
+                                hình phát hiện ảnh chỉnh sửa đạt >90%. Kết hợp cả hai cho độ tin cậy cao hơn.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">🔹 Ảnh ELA là gì và tại sao lại hiển thị?</div>
+                            <div class="faq-answer">ELA (Error Level Analysis) là kỹ thuật phân tích sai số nén ảnh. Các
+                                vùng sáng trong ảnh ELA cho thấy dấu hiệu đã bị chỉnh sửa. Đây là minh chứng trực quan
+                                cho kết quả phân tích.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question">🔹 Lịch sử phân tích có được lưu vĩnh viễn không?</div>
+                            <div class="faq-answer">Lịch sử được lưu trong bộ nhớ của trình duyệt (localStorage). Bạn có
+                                thể xóa bất cứ lúc nào bằng nút "Xóa tất cả".</div>
+                        </div>
+                    </div>
+
+                    <div class="guide-note">
+                        <strong>⚠️ Lưu ý:</strong> Công cụ này chỉ mang tính chất tham khảo. Đối với các thông tin quan
+                        trọng, vui lòng kiểm tra từ nhiều nguồn uy tín khác nhau.
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>FakeShield - Phát hiện tin giả đa phương thức bằng AI</p>
+            <p class="footer-small">© 2026 - Sử dụng mô hình Fake News Detection & Image Tampering Detection</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
