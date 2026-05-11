@@ -42,7 +42,8 @@ async def predict_image_tampering(file) -> str:
     predictions = image_model.predict(image)
     if predictions.shape[-1] == 1:
         score = float(predictions[0][0])
-        return 'Authentic' if score >= 0.5 else 'Tampered'
+        # Theo label_mapping: {0: 'Au', 1: 'Tp'}
+        return 'Authentic' if score < 0.5 else 'Tampered' 
     else:
         label_id = int(np.argmax(predictions, axis=-1)[0])
-        return 'Authentic' if label_id == 1 else 'Tampered'
+        return 'Authentic' if label_id == 0 else 'Tampered'
