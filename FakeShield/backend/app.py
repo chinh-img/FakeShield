@@ -84,23 +84,23 @@ async def predict_combined(image: UploadFile = File(None), text: Optional[str] =
     verdict = "REAL"
     confidence = 0.0
     reason = ""
-    
+    print(news_result, image_result)
     # TH1: Cả 2 đều có kết quả
     if news_result and image_result:
         if news_result == "Fake" and image_result == "Tampered":
-            verdict = "Fake"
+            verdict = "FAKE"
             confidence = 0.95
             reason = "Cả văn bản và hình ảnh đều có dấu hiệu giả mạo. Độ tin cậy rất thấp"
         elif news_result == "Fake":
-            verdict = "Fake"
+            verdict = "FAKE"
             confidence = 0.85
             reason = "Nội dung văn bản có dấu hiệu là tin giả, dù ảnh chưa phát hiện vấn đề"
         elif image_result == "Tampered":
-            verdict = "Fake"
+            verdict = "FAKE"
             confidence = 0.8
             reason = "Hình ảnh có dấu hiệu bị chỉnh sửa, nội dung văn bản cần kiểm tra thêm"
         elif news_result == "Real" and image_result == "Authentic":
-            verdict = "Real"
+            verdict = "REAL"
             confidence = 0.75
             reason = "Nội dung văn bản có độ tin cậy cao, hình ảnh bình thường"
         else:
