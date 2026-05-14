@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 
 # Import các model riêng
-from news_model import load_news_model, predict_news_type
-from image_model import load_image_model, predict_image_tampering, get_image_model, generate_gradcam_heatmap, overlay_heatmap, generate_ela_image
+from backend.news_model import load_news_model, predict_news_type
+from backend.image_model import load_image_model, predict_image_tampering, get_image_model, generate_gradcam_heatmap, overlay_heatmap, generate_ela_image
 
 app = FastAPI(title="FakeShield API", description="API phát hiện tin giả đa phương thức", version="1.0.0")
 
