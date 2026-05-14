@@ -376,6 +376,33 @@ textarea:focus { outline: none; border-color: #667eea; }
     color: #ff4444;
 }
 
+.stats-container {
+    background: #f8f9fc;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: center;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    flex: 1;
+    min-width: 250px;
+}
+
+.stat-card canvas {
+    max-height: 200px;
+}
+
 /* ========== GUIDE TAB STYLES ========== */
 .guide-container {
     max-width: 900px;

@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import os
+import cv2
+import base64
 
 # Đường dẫn tới mô hình image
 image_model_path = "./Models/ela_tampering_model.keras"
@@ -22,7 +24,12 @@ def load_image_model():
         print(f"Lỗi khi tải mô hình image: {e}")
         return False
 
+def get_image_model():
+    global image_model
+    return image_model
+
 async def predict_image_tampering(file) -> str:
+    global image_model
     if image_model is None:
         raise RuntimeError('Mô hình ảnh chưa được tải.')
 
@@ -47,3 +54,67 @@ async def predict_image_tampering(file) -> str:
     else:
         label_id = int(np.argmax(predictions, axis=-1)[0])
         return 'Authentic' if label_id == 0 else 'Tampered'
+
+
+def generate_ela_image(content: bytes) -> str:
+    """Tạo ảnh ELA base64 từ nội dung ảnh gốc."""
+    np_img = np.frombuffer(content, np.uint8)
+    original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+    if original is None:
+        raise ValueError('Không thể đọc ảnh để tạo ELA')
+
+    _, encoded = cv2.imencode('.jpg', original, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+    compressed = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+    ela = cv2.absdiff(original, compressed)
+    ela_gray = cv2.cvtColor(ela, cv2.COLOR_BGR2GRAY)
+    ela_scaled = cv2.normalize(ela_gray, None, 0, 255, cv2.NORM_MINMAX)
+    ela_color = cv2.cvtColor(ela_scaled, cv2.COLOR_GRAY2BGR)
+
+    _, buffer = cv2.imencode('.jpg', ela_color)
+    return base64.b64encode(buffer).decode('utf-8')
+    
+
+def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
+    """Tạo heatmap để khoanh vùng vùng bị chỉnh sửa"""
+    if last_conv_layer_name not in [layer.name for layer in model.layers]:
+        for layer in reversed(model.layers):
+            if 'conv' in layer.name:
+                last_conv_layer_name = layer.name
+                print(layer.name)
+                break
+            
+    # Model mới để lấy gradient
+    grad_model = tf.keras.models.Model(
+        [model.inputs],
+        [model.get_layer(last_conv_layer_name).output, model.output]
+    )
+    
+    with tf.GradientTape() as tape:
+        conv_output, predictions = grad_model(img_array)
+        if predictions.shape[-1] == 1:
+            loss = predictions[:, 0]
+        else:
+            loss = predictions[:, 1]
+        
+    grads = tape.gradient(loss, conv_output)
+    weights = tf.reduce_mean(grads, axis=(1,2))
+    heatmap = tf.reduce_sum(tf.multiply(weights, conv_output), axis=-1)
+    
+    # Normalize
+    heatmap = tf.maximum(heatmap, 0)
+    max_val = tf.math.reduce_max(heatmap)
+    if max_val == 0:
+        max_val = tf.constant(1.0)
+    heatmap = heatmap / max_val
+    heatmap = heatmap.numpy()[0]
+    return heatmap
+
+def overlay_heatmap(original_img, heatmap, alpha=0.5):
+    # Resize heatmap to match original image size
+    heatmap = cv2.resize(heatmap, (original_img.shape[1], original_img.shape[0]))
+    
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    
+    overlayed = cv2.addWeighted(original_img, alpha, heatmap, 1 - alpha, 0)
+    return overlayed

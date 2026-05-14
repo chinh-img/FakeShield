@@ -115,7 +115,9 @@ function displayResults(data) {
         
         // Show ELA image if available
         if (data.ela_image) {
-            document.getElementById('resultElaImg').src = `data:image/jpeg;base64,${data.ela_image}`;
+            const elaImg = document.getElementById('resultElaImg');
+            elaImg.src = `data:image/jpeg;base64,${data.ela_image}`;
+            elaImg.style.display = 'block';
         }
     } else {
         document.getElementById('imageBadge').textContent = 'Không có ảnh';
@@ -143,6 +145,14 @@ function displayResults(data) {
         document.querySelector('.preview-content').textContent = 'Chưa có văn bản...';
     }
     
+    const heatmapImg = document.getElementById('resultHeatmapImg');
+    if (data.heatmap_image) {
+        heatmapImg.src = `data:image/jpeg;base64,${data.heatmap_image}`;
+        heatmapImg.style.display = 'block';
+    } else {
+        heatmapImg.style.display = 'none';
+    }
+
     // Final verdict
     const verdict = data.final_verdict || 'SUSPICIOUS';
     const verdictDisplay = document.getElementById('verdictDisplay');
@@ -296,3 +306,74 @@ const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 if (clearHistoryBtn) {
     clearHistoryBtn.addEventListener('click', clearHistory);
 }
+
+function renderStats() {
+    const history = getHistory();
+    if (history.length === 0) return;
+
+    const verdictCounts = {
+        'REAL' : history.filter(h => h.verdict === 'REAL').length,
+        'FAKE' : history.filter(h => h.verdict === 'FAKE').length,
+        'SUSPICIOUS' : history.filter(h => h.verdict === 'SUSPICIOUS').length,
+    };
+
+    const ctx = document.getElementById('verdictChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            lables: ['✅ Tin Thật', '⚠️ Tin giả', '❓ Cần xác minh'],
+            datasets: [{
+                data: [verdictCounts.REAL, verdictCounts.FAKE, verdictCounts.SUSPICIOUS],
+                backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' },
+            }
+        }
+    });
+
+    const last7Days = getlast7DaysStats(history);
+    const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+    new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: last7Days.labels,
+            datasets: [
+                {label: 'Tin Thật', data: last7Days.REAL, borderColor: '#28a745', tension: 0.3},
+                {label: 'Tin Giả', data: last7Days.FAKE, borderColor: '#dc3545', tension: 0.3},
+            ]
+        },
+        options: {responsive: true}
+    });
+}
+
+function getlast7DaysStats(history){
+    const labels = [];
+    const real = [];
+    const fake = [];
+
+    for (let i = 6; i >=0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString('vi-VN');
+        labels.push(dateStr);
+
+        const dayHistory = history.filter(h => {
+            const hDate = new Date(h.timestamp.split(',')[0]);
+            return hDate.toDateString() === date.toDateString();
+        });
+
+        real.push(dayHistory.filter(h => h.verdict === 'REAL').length);
+        real.push(dayHistory.filter(h => h.verdict === 'REAL').length);
+    }
+
+    return { labels, real, fake };
+}
+
+document.querySelector('[data-tab="history"]').addEventListener('click', () => {
+    setTimeout(renderStats, 100);
+});

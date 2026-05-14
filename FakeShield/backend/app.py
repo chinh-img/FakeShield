@@ -9,7 +9,7 @@ import numpy as np
 
 # Import các model riêng
 from news_model import load_news_model, predict_news_type
-from image_model import load_image_model, predict_image_tampering
+from image_model import load_image_model, predict_image_tampering, get_image_model, generate_gradcam_heatmap, overlay_heatmap, generate_ela_image
 
 app = FastAPI(title="FakeShield API", description="API phát hiện tin giả đa phương thức", version="1.0.0")
 
@@ -44,6 +44,7 @@ class CombinedResponse(BaseModel):
     ela_image: Optional[str] = None
     image_description: Optional[str] = None
     text_description: Optional[str] = None
+    heatmap_image: Optional[str] = None
 
 @app.post("/predictnews", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -73,13 +74,47 @@ async def predict_combined(image: UploadFile = File(None), text: Optional[str] =
             print(f"Lỗi phân tích văn bản: {e}")
     
     image_result = None # Phân tích ảnh (nếu có)
+    ela_base64 = None
+    heatmap_base64 = None
     if image and image.filename:
         try:
             image_result = await predict_image_tampering(image)
         except Exception as e:
             image_result = "Error"
             print(f"Lỗi phân tích ảnh: {e}")
-            
+
+    if image and image.filename:
+        try:
+            await image.seek(0)
+            content = await image.read()
+
+            # Tạo ảnh ELA
+            ela_base64 = generate_ela_image(content)
+
+            # Tạo heatmap Grad-CAM
+            nparr = np.frombuffer(content, np.uint8)
+            original_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if original_image is not None:
+                image_model = get_image_model()
+                if image_model is not None:
+                    input_shape = image_model.input_shape
+                    if input_shape and len(input_shape) >= 4 and input_shape[1] is not None and input_shape[2] is not None:
+                        target_size = (input_shape[1], input_shape[2])
+                    else:
+                        target_size = (224, 224)
+
+                    img_resized = cv2.resize(original_image, target_size)
+                    img_array = np.expand_dims(img_resized / 255.0, axis=0).astype(np.float32)
+                    
+                    heatmap = generate_gradcam_heatmap(image_model, img_array)
+                    overlaid = overlay_heatmap(original_image, heatmap, alpha=0.4)
+                    
+                    _, buffer = cv2.imencode('.jpg', overlaid)
+                    heatmap_base64 = base64.b64encode(buffer).decode('utf-8')
+        except Exception as e:
+            print(f"Lỗi tạo heatmap hoặc ELA: {e}")
+
+    
     # Phán quyết
     verdict = "REAL"
     confidence = 0.0
@@ -135,12 +170,15 @@ async def predict_combined(image: UploadFile = File(None), text: Optional[str] =
         verdict = "SUSPICIOUS"
         confidence = 0.0
         reason = "Không có dữ liệu để phân tích"
+    
     return CombinedResponse(
         news_prediction=news_result or "No text provided",
         image_prediction=image_result or "No image provided",
         final_verdict=verdict,
         confidence=confidence,
         reason=reason,
+        ela_image=ela_base64,
+        heatmap_image=heatmap_base64,
         image_description='Phân tích dựa trên Error Level Analysis (ELA)',
         text_description='Phân tích dựa trên mô hình BERT fine-tuned'
     )

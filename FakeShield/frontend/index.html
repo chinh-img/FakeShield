@@ -9,6 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -93,6 +94,10 @@
                                             title="Error Level Analysis: vùng sáng = dấu hiệu chỉnh sửa">ⓘ</span></div>
                                     <img id="resultElaImg" class="result-img" alt="ELA">
                                 </div>
+                                <div class="compare-item">
+                                    <div class="compare-label">🔍 Heatmap (vùng nghi ngờ)</div>
+                                    <img id="resultHeatmapImg" class="result-img" alt="Heatmap" style="display: none;">
+                                </div>
                             </div>
                             <div class="result-badge" id="imageBadge">--</div>
                             <p class="result-detail" id="imageDetail">--</p>
@@ -136,6 +141,17 @@
 
             <!-- Tab History - Hoàn chỉnh -->
             <div id="historyTab" class="tab-content">
+                <div class="stats-container">
+                    <h3>📊 Thống kê tổng quan</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <canvas id="verdictChart" width="200" height="200"></canvas>
+                        </div>
+                        <div class="stat-card">
+                            <canvas id="timelineChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
                 <div class="history-container">
                     <div class="history-header">
                         <h2>📋 Lịch sử phân tích</h2>
