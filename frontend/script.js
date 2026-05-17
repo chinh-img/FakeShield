@@ -321,7 +321,7 @@ function renderStats() {
     new Chart(ctx, {
         type: 'pie',
         data: {
-            lables: ['✅ Tin Thật', '⚠️ Tin giả', '❓ Cần xác minh'],
+            labels: ['✅ Tin Thật', '⚠️ Tin giả', '❓ Cần xác minh'],
             datasets: [{
                 data: [verdictCounts.REAL, verdictCounts.FAKE, verdictCounts.SUSPICIOUS],
                 backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
@@ -368,7 +368,7 @@ function getlast7DaysStats(history){
         });
 
         real.push(dayHistory.filter(h => h.verdict === 'REAL').length);
-        real.push(dayHistory.filter(h => h.verdict === 'REAL').length);
+        fake.push(dayHistory.filter(h => h.verdict === 'FAKE').length);
     }
 
     return { labels, real, fake };
@@ -377,3 +377,97 @@ function getlast7DaysStats(history){
 document.querySelector('[data-tab="history"]').addEventListener('click', () => {
     setTimeout(renderStats, 100);
 });
+
+// ========== URL ANALYSIS ==========
+const urlInput = document.getElementById('urlInput');
+const analyzeUrlBtn = document.getElementById('analyzeUrlBtn');
+const urlResult = document.getElementById('urlResult');
+const urlResultContent = document.getElementById('urlResultContent');
+
+if (analyzeUrlBtn) {
+    analyzeUrlBtn.addEventListener('click', async () => {
+        const url = urlInput.value.trim();
+        
+        if (!url) {
+            alert('Vui lòng nhập link bài báo');
+            return;
+        }
+        
+        // Kiểm tra URL hợp lệ
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            alert('Vui lòng nhập link bắt đầu bằng http:// hoặc https://');
+            return;
+        }
+        
+        urlResult.style.display = 'block';
+        urlResultContent.innerHTML = '<div class="loading-spinner">🔄 Đang phân tích link...</div>';
+        analyzeUrlBtn.disabled = true;
+        analyzeUrlBtn.textContent = '⏳ Đang xử lý...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('url', url);
+            
+            const response = await fetch('http://127.0.0.1:5000/predicturl', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Lỗi server');
+            }
+            
+            const data = await response.json();
+            
+            // Xác định class cho badge
+            let badgeClass = 'suspicious';
+            let badgeText = '❓ CẦN XÁC MINH';
+            if (data.final_verdict === 'REAL') {
+                badgeClass = 'real';
+                badgeText = '✅ TIN THẬT';
+            } else if (data.final_verdict === 'FAKE') {
+                badgeClass = 'fake';
+                badgeText = '⚠️ TIN GIẢ';
+            }
+            
+            urlResultContent.innerHTML = `
+                <div class="url-result-card">
+                    <h5>📰 ${escapeHtml(data.title) || 'Không có tiêu đề'}</h5>
+                    <p><strong>🔍 Kết quả:</strong> 
+                        <span class="badge ${badgeClass}">${badgeText}</span>
+                    </p>
+                    <p><strong>📝 Văn bản:</strong> ${data.news_prediction || 'Không xác định'}</p>
+                    <p><strong>🖼️ Hình ảnh:</strong> ${data.image_prediction || 'Không có ảnh'}</p>
+                    <p><strong>🎯 Độ tin cậy:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
+                    ${data.top_image ? `<img src="${data.top_image}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px;" onerror="this.style.display='none'">` : ''}
+                    <details>
+                        <summary style="cursor: pointer; margin-top: 10px;">📖 Xem nội dung trích xuất</summary>
+                        <div class="text-preview">${escapeHtml(data.text_preview || 'Không có nội dung')}</div>
+                    </details>
+                </div>
+            `;
+            
+        } catch (error) {
+            console.error('Lỗi:', error);
+            urlResultContent.innerHTML = `<div style="color: #dc3545; padding: 20px; text-align: center;">
+                ❌ Lỗi: ${error.message}<br>
+                <small>Vui lòng thử lại hoặc kiểm tra link</small>
+            </div>`;
+        } finally {
+            analyzeUrlBtn.disabled = false;
+            analyzeUrlBtn.textContent = '📰 Phân tích link';
+        }
+    });
+}
+
+// Hàm escapeHtml để tránh XSS
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}

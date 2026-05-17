@@ -76,13 +76,16 @@ def generate_ela_image(content: bytes) -> str:
 
 def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
     """Tạo heatmap để khoanh vùng vùng bị chỉnh sửa"""
-    if last_conv_layer_name not in [layer.name for layer in model.layers]:
+    
+    if last_conv_layer_name is None:
         for layer in reversed(model.layers):
-            if 'conv' in layer.name:
+            if 'conv' in layer.name.lower():
                 last_conv_layer_name = layer.name
-                print(layer.name)
+                print(f"Dùng layer: {last_conv_layer_name}")
                 break
-            
+    if last_conv_layer_name is None:
+        raise ValueError("Không tìm thấy conv layer trong model")
+    
     # Model mới để lấy gradient
     grad_model = tf.keras.models.Model(
         [model.inputs],
@@ -94,19 +97,23 @@ def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
         if predictions.shape[-1] == 1:
             loss = predictions[:, 0]
         else:
-            loss = predictions[:, 1]
+            loss = tf.reduce_max(predictions, axis=-1)
         
     grads = tape.gradient(loss, conv_output)
+    if grads is None:
+        print("Không tính được gradient")
+        return np.zeros((img_array.shape[1], img_array.shape[2]))
+    
     weights = tf.reduce_mean(grads, axis=(1,2))
     heatmap = tf.reduce_sum(tf.multiply(weights, conv_output), axis=-1)
     
-    # Normalize
+    # Normalize về [0, 1]
     heatmap = tf.maximum(heatmap, 0)
     max_val = tf.math.reduce_max(heatmap)
-    if max_val == 0:
-        max_val = tf.constant(1.0)
-    heatmap = heatmap / max_val
+    if max_val >  0:
+        heatmap = heatmap / max_val
     heatmap = heatmap.numpy()[0]
+    
     return heatmap
 
 def overlay_heatmap(original_img, heatmap, alpha=0.5):

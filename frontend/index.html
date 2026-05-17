@@ -50,13 +50,27 @@
                     <div class="text-card">
                         <div class="text-header">
                             <span class="text-icon">📝</span>
-                            <h3>Nhập văn bản hoặc link</h3>
+                            <h3>Nhập văn bản</h3>
                         </div>
                         <textarea id="textInput"
-                            placeholder="Dán nội dung bài báo, status, hoặc link bài viết vào đây..."></textarea>
+                            placeholder="Dán nội dung bài báo, status, bài viết vào đây..."></textarea>
                         <div class="text-stats">
                             <span id="charCount">0</span> ký tự
                         </div>
+                    </div>
+                </div>
+
+                <div class="url-card">
+                    <div class="url-header">
+                        <span class="url-icon">🔗</span>
+                        <h3>Phân tích từ link bài báo</h3>
+                    </div>
+                    <div class="url-input-group">
+                        <input type="text" id="urlInput" placeholder="https://example.com/news/article...">
+                        <button id="analyzeUrlBtn" class="url-analyze-btn">Phân tích link</button>
+                    </div>
+                    <div id="urlResult" class="url-result" style="display: none;">
+                        <div id="urlResultContent"></div>
                     </div>
                 </div>
 

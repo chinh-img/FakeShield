@@ -1,3 +1,4 @@
+# Import library
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -6,10 +7,15 @@ from typing import Optional
 import base64
 import cv2
 import numpy as np
+import requests
+from bs4 import BeautifulSoup
+from newspaper import Article
+import io, os
+import tempfile
 
 # Import các model riêng
-from backend.news_model import load_news_model, predict_news_type
-from backend.image_model import load_image_model, predict_image_tampering, get_image_model, generate_gradcam_heatmap, overlay_heatmap, generate_ela_image
+from news_model import load_news_model, predict_news_type
+from image_model import load_image_model, predict_image_tampering, get_image_model, generate_gradcam_heatmap, overlay_heatmap, generate_ela_image
 
 app = FastAPI(title="FakeShield API", description="API phát hiện tin giả đa phương thức", version="1.0.0")
 
@@ -63,6 +69,61 @@ async def predict_image(file: UploadFile = File(...)):
 
     return PredictionResponse(prediction=prediction)
 
+@app.post("/predicturl")
+async def predict_from_url(url: str = Form(...)):
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        
+        text = article.text
+        title = article.title
+        top_image = article.top_image
+        
+        news_prediction = predict_news_type(text) if text else "No text"
+        
+        image_result = "No image"
+        if top_image:
+            try:
+                img_response = requests.get(top_image, timeout=10)
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                    tmp.write(img_response.content)
+                    tmp_path = tmp.name
+                
+                with open(tmp_path, 'rb') as f:
+                    fake_file = UploadFile(filename='image.jpg', file=f)
+                    image_result = await predict_image_tampering(fake_file)
+                    
+                os.unlink(tmp_path)
+            except Exception as e:
+                print(f"Lỗi tải/ phân tích ảnh: {e}")
+                
+        if news_prediction == "Fake" or image_result == "Tampered":
+            final_verdict = "FAKE"
+            confidence = 0.85
+        elif news_prediction == "Real" and image_result == "Authentic":
+            final_verdict = "REAL"
+            confidence = 0.90
+        else:
+            final_verdict = "SUSPICIOUS"
+            confidence = 0.60
+        
+        return {
+            "title" : title,
+            "url" : url,
+            "news_prediction": news_prediction,
+            "image_prediction": image_result,
+            "final_verdict": final_verdict,
+            "confidence": confidence,
+            "text_preview": text[:500] + "..." if len(text) > 500 else text,
+            "top_image": top_image
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi phân tích URL: {str(e)}")
+            
+                
 @app.post("/predictcombined", response_model=CombinedResponse)
 async def predict_combined(image: UploadFile = File(None), text: Optional[str] = Form(None)):
     news_result = None # Phân tích văn bản (nếu có)
@@ -94,25 +155,34 @@ async def predict_combined(image: UploadFile = File(None), text: Optional[str] =
             # Tạo heatmap Grad-CAM
             nparr = np.frombuffer(content, np.uint8)
             original_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
             if original_image is not None:
                 image_model = get_image_model()
                 if image_model is not None:
                     input_shape = image_model.input_shape
-                    if input_shape and len(input_shape) >= 4 and input_shape[1] is not None and input_shape[2] is not None:
+                    if input_shape and len(input_shape) >= 4:
                         target_size = (input_shape[1], input_shape[2])
                     else:
-                        target_size = (224, 224)
+                        target_size = (128, 128)
+                    print(f"Target size: {target_size}")
 
                     img_resized = cv2.resize(original_image, target_size)
                     img_array = np.expand_dims(img_resized / 255.0, axis=0).astype(np.float32)
+                    print(f"Input shape: {img_array.shape}")
                     
                     heatmap = generate_gradcam_heatmap(image_model, img_array)
-                    overlaid = overlay_heatmap(original_image, heatmap, alpha=0.4)
-                    
-                    _, buffer = cv2.imencode('.jpg', overlaid)
-                    heatmap_base64 = base64.b64encode(buffer).decode('utf-8')
+                    if heatmap.max() > 0:
+                        overlaid = overlay_heatmap(original_image, heatmap, alpha=0.4)
+                        _, buffer = cv2.imencode('.jpg', overlaid)
+                        heatmap_base64 = base64.b64encode(buffer).decode('utf-8')
+                        print(f"Heatmap created successfully")
+                    else:
+                        print("Heatmap có giá trị 0, không thể tạo overlay")
+                        
         except Exception as e:
             print(f"Lỗi tạo heatmap hoặc ELA: {e}")
+            import traceback
+            traceback.print_exc()
 
     
     # Phán quyết
