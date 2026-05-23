@@ -9,6 +9,7 @@ image_model_path = "./Models/ela_tampering_model.keras"
 
 # Biến global cho mô hình image
 image_model = None
+THRESHOLD = 0.7 # Ngưỡng phát hiển ảnh giả (tăng để giảm false positive)
 
 def load_image_model():
     global image_model
@@ -29,7 +30,7 @@ def get_image_model():
     return image_model
 
 async def predict_image_tampering(file) -> str:
-    global image_model
+    global image_model, THRESHOLD
     if image_model is None:
         raise RuntimeError('Mô hình ảnh chưa được tải.')
 
@@ -50,10 +51,19 @@ async def predict_image_tampering(file) -> str:
     if predictions.shape[-1] == 1:
         score = float(predictions[0][0])
         # Theo label_mapping: {0: 'Au', 1: 'Tp'}
-        return 'Authentic' if score < 0.5 else 'Tampered' 
+        # Tính cònidence: càng xa threshold càng tin cậy
+        if score < THRESHOLD:
+            confidence = 0.5 + (THRESHOLD - score) / 2 # score càng thấp, confidence càng cao
+            confidence = min(0.95, max(0.60, confidence))
+            return ('Authentic', confidence)
+        else:
+            confidence = 0.5 + (score - THRESHOLD) / 2
+            confidence = min(0.95, max(0.60, confidence))
+            return ('Tampered', confidence)
     else:
         label_id = int(np.argmax(predictions, axis=-1)[0])
-        return 'Authentic' if label_id == 0 else 'Tampered'
+        confidence = float(np.max(predictions))
+        return 'Authentic' if label_id == 0 else 'Tampered', confidence
 
 
 def generate_ela_image(content: bytes) -> str:
