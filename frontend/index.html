@@ -10,6 +10,32 @@
         href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js",
+                "firebase/analytics": "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js"
+            }
+        }
+    </script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "firebase/app";
+        import { getFirestore, doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, getDocs, increment, query, where } from "firebase/firestore";
+        import { getAnalytics } from "firebase/analytics";
+        import { firebaseConfig } from "./config.js";
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const analytics = getAnalytics(app);
+
+        window.db = db;
+        window.firestoreHelpers = { getFirestore, doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, getDocs, increment, query, where };
+        console.log("Firebase connected successfully");
+        console.log("Firestore ready:", db);
+    </script>
 </head>
 
 <body>
@@ -148,6 +174,10 @@
                                 <div class="confidence-value" id="confidenceValue">0%</div>
                             </div>
                             <p class="verdict-reason" id="verdictReason">--</p>
+                            <div style="display: grid; grid-template-columns: repeat(2, 2rem); gap: 15px; margin-top: 15px;">
+                                <div id="fbLikeBtn" style="font-size: 28px; cursor: pointer;">👍</div>
+                                <div id="fbDislikeBtn" style="font-size: 28px; cursor: pointer;">👎</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -189,7 +219,8 @@
 
                     <div class="guide-intro">
                         <p>FakeShield là công cụ phát hiện tin giả đa phương thức, sử dụng AI để phân tích cả
-                            <strong>văn bản</strong> và <strong>hình ảnh</strong>.</p>
+                            <strong>văn bản</strong> và <strong>hình ảnh</strong>.
+                        </p>
                     </div>
 
                     <div class="guide-section">
@@ -220,6 +251,14 @@
                                 <strong>Nhấn "Phân tích ngay"</strong>
                                 <p>Hệ thống sẽ xử lý và hiển thị kết quả bao gồm: phân tích ảnh (ELA), phân tích văn bản
                                     và phán quyết cuối cùng.</p>
+                            </div>
+                        </div>
+
+                        <div class="guide-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <strong>Góp ý để cải thiện</strong>
+                                <p>Sau mỗi lần phân tích, hệ thống sẽ hiển thị kết quả cùng với 2 nút Like (👍) và Dislike (👎) ở cuối phán quyết cuối cùng</p>
                             </div>
                         </div>
                     </div>

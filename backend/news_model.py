@@ -25,7 +25,7 @@ def load_news_model():
         print(f"Lỗi khi tải mô hình text hoặc tokenizer: {e}")
         return False
 
-def predict_news_type(text: str, threshold: float = 0.30) -> str:
+def predict_news_type(text: str, threshold: float = 0.40) -> str:
     if loaded_tokenizer is None or loaded_model is None:
         raise RuntimeError('Mô hình text chưa được tải.')
 

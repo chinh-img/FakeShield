@@ -146,6 +146,7 @@ function displayResults(data) {
     }
     
     const heatmapImg = document.getElementById('resultHeatmapImg');
+    console.log("Heatmap data:", data.heatmap_image ? "Có": "Không");
     if (data.heatmap_image) {
         heatmapImg.src = `data:image/jpeg;base64,${data.heatmap_image}`;
         heatmapImg.style.display = 'block';
@@ -177,6 +178,197 @@ function displayResults(data) {
     
     // Scroll to results
     resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// FEEDBACK MANAGEMENT
+// ID document trong Firestore (feedback collection)
+const FEEDBACK_DOC_ID = "3nhfJY24NmV20dicGQ5Q";
+
+// Biến lưu kết quả hiện tại
+let currentResultData = null;
+
+// Hàm cập nhật currentResultData khi có kết quả mới
+function updateCurrentResult(data) {
+    currentResultData = {
+        news_prediction: data.news_prediction,
+        image_prediction: data.image_prediction,
+        final_verdict: data.final_verdict,
+        confidence: data.confidence,
+        timestamp: new Date().toISOString()
+    };
+}
+
+// Hàm reset kết quả (xóa hiển thị)
+function resetResults() {
+    // Ẩn section kết quả
+    const resultsSection = document.getElementById('resultsSection');
+    if (resultsSection) {
+        resultsSection.style.display = 'none';
+    }
+    
+    // Reset các giá trị hiển thị
+    document.getElementById('confidenceFill').style.width = '0%';
+    document.getElementById('confidenceValue').textContent = '0%';
+    document.getElementById('verdictReason').textContent = '--';
+    
+    // Reset badge
+    const imageBadge = document.getElementById('imageBadge');
+    const textBadge = document.getElementById('textBadge');
+    if (imageBadge) {
+        imageBadge.textContent = '--';
+        imageBadge.className = 'result-badge';
+    }
+    if (textBadge) {
+        textBadge.textContent = '--';
+        textBadge.className = 'result-badge';
+    }
+    
+    // Reset ảnh preview
+    const resultOriginalImg = document.getElementById('resultOriginalImg');
+    const resultElaImg = document.getElementById('resultElaImg');
+    const resultHeatmapImg = document.getElementById('resultHeatmapImg');
+    
+    if (resultOriginalImg) resultOriginalImg.src = '';
+    if (resultElaImg) {
+        resultElaImg.src = '';
+        resultElaImg.style.display = 'none';
+    }
+    if (resultHeatmapImg) {
+        resultHeatmapImg.src = '';
+        resultHeatmapImg.style.display = 'none';
+    }
+    
+    // Reset text preview
+    const previewContent = document.querySelector('.preview-content');
+    if (previewContent) {
+        previewContent.textContent = '--';
+    }
+    
+    // Reset nội dung text input (tùy chọn)
+    // document.getElementById('textInput').value = '';
+    // document.getElementById('charCount').textContent = '0';
+    
+    // Reset file ảnh
+    const imageInput = document.getElementById('imageInput');
+    if (imageInput) imageInput.value = '';
+    
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    if (imagePreviewContainer) {
+        imagePreviewContainer.style.display = 'none';
+    }
+    
+    // Hiển thị lại upload area
+    const uploadCard = document.querySelector('.upload-card');
+    if (uploadCard) {
+        const uploadIcon = uploadCard.querySelector('.upload-icon');
+        const uploadTitle = uploadCard.querySelector('h3');
+        const uploadText = uploadCard.querySelector('p');
+        const formatHint = uploadCard.querySelector('.format-hint');
+        if (uploadIcon) uploadIcon.style.display = 'block';
+        if (uploadTitle) uploadTitle.style.display = 'block';
+        if (uploadText) uploadText.style.display = 'block';
+        if (formatHint) formatHint.style.display = 'block';
+    }
+    
+    // Scroll lên đầu trang
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Xóa thông báo sau 3 giây
+    setTimeout(() => {
+        const msgDiv = document.getElementById('fbFeedbackMessage');
+        if (msgDiv) msgDiv.textContent = '';
+    }, 3000);
+    
+    console.log("🔄 Đã reset kết quả, sẵn sàng phân tích mới");
+}
+// Hàm lưu like/dislike lên Firebase và xóa kết quả
+async function saveFeedbackAndReset(feedbackType, isCorrect) {
+    if (!window.db || !window.firestoreHelpers) {
+        console.log("⚠️ Firebase chưa sẵn sàng");
+        // Vẫn cho reset kết quả
+        resetResults();
+        return;
+    }
+    
+    try {
+        const { doc, updateDoc, increment } = window.firestoreHelpers;
+        const docRef = doc(window.db, 'feedback', FEEDBACK_DOC_ID);
+        
+        // Tăng số lượng like hoặc dislike
+        if (feedbackType === 'like') {
+            await updateDoc(docRef, {
+                likes: increment(1)
+            });
+            console.log("✅ Đã tăng like");
+        } else {
+            await updateDoc(docRef, {
+                dislikes: increment(1)
+            });
+            console.log("✅ Đã tăng dislike");
+        }
+        
+        // Hiển thị thông báo
+        const msgDiv = document.getElementById('fbFeedbackMessage');
+        if (msgDiv) {
+            if (feedbackType === 'like') {
+                msgDiv.textContent = '✅ Cảm ơn bạn! Phản hồi đã được ghi nhận.';
+                msgDiv.style.color = '#28a745';
+            } else {
+                msgDiv.textContent = '📝 Cảm ơn bạn! Chúng tôi sẽ cải thiện AI.';
+                msgDiv.style.color = '#dc3545';
+            }
+        }
+        
+        // Lưu feedback vào localStorage để thống kê
+        const feedbacks = JSON.parse(localStorage.getItem('fakeshield_feedbacks') || '{}');
+        feedbacks[Date.now()] = {
+            type: feedbackType,
+            timestamp: new Date().toISOString(),
+            result: currentResultData
+        };
+        localStorage.setItem('fakeshield_feedbacks', JSON.stringify(feedbacks));
+        
+        // Chờ 1.5 giây để người dùng thấy thông báo, rồi reset
+        setTimeout(() => {
+            resetResults();
+        }, 1500);
+        
+    } catch (error) {
+        console.error("❌ Firebase error:", error);
+        // Vẫn reset kết quả dù Firebase lỗi
+        resetResults();
+    }
+}
+
+// Gán sự kiện cho nút Like/Dislike
+function initFeedbackButtons() {
+    const likeBtn = document.getElementById('fbLikeBtn');
+    const dislikeBtn = document.getElementById('fbDislikeBtn');
+    
+    if (likeBtn) {
+        // Xóa sự kiện cũ để tránh trùng lặp
+        const newLikeBtn = likeBtn.cloneNode(true);
+        likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+        newLikeBtn.addEventListener('click', () => {
+            if (currentResultData) {
+                saveFeedbackAndReset('like', true);
+            } else {
+                alert('Chưa có kết quả nào để đánh giá!');
+            }
+        });
+    }
+    
+    if (dislikeBtn) {
+        const newDislikeBtn = dislikeBtn.cloneNode(true);
+        dislikeBtn.parentNode.replaceChild(newDislikeBtn, dislikeBtn);
+        newDislikeBtn.addEventListener('click', () => {
+            if (currentResultData) {
+                saveFeedbackAndReset('dislike', false);
+            } else {
+                alert('Chưa có kết quả nào để đánh giá!');
+            }
+        });
+    }
 }
 
 // ========== HISTORY MANAGEMENT ==========
@@ -294,11 +486,19 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistory();
 });
 
-// Cập nhật hàm displayResults để lưu vào lịch sử
+// Cập nhật hàm displayResults để lưu
 const originalDisplayResults = displayResults;
 window.displayResults = function(data) {
+    // Lưu kết quả hiện tại
+    updateCurrentResult(data);
+    
+    // Gọi hàm hiển thị gốc
     originalDisplayResults(data);
-    saveToHistory(data);
+    
+    saveToHistory(data)
+
+    // Khởi tạo lại buttons (vì DOM có thể thay đổi)
+    initFeedbackButtons();
 };
 
 // Gán sự kiện cho nút xóa lịch sử
@@ -306,6 +506,10 @@ const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 if (clearHistoryBtn) {
     clearHistoryBtn.addEventListener('click', clearHistory);
 }
+
+
+let verdictChartInstance = null;
+let timelineChartInstance = null;
 
 function renderStats() {
     const history = getHistory();
@@ -316,6 +520,8 @@ function renderStats() {
         'FAKE' : history.filter(h => h.verdict === 'FAKE').length,
         'SUSPICIOUS' : history.filter(h => h.verdict === 'SUSPICIOUS').length,
     };
+
+    if (verdictChartInstance) verdictChartInstance.destroy(); // Hủy chart cũ nếu đã tồn tại
 
     const ctx = document.getElementById('verdictChart').getContext('2d');
     new Chart(ctx, {
@@ -337,6 +543,9 @@ function renderStats() {
     });
 
     const last7Days = getlast7DaysStats(history);
+
+    if (timelineChartInstance) timelineChartInstance.destroy(); // Hủy chart cũ nếu đã tồn tại
+
     const timelineCtx = document.getElementById('timelineChart').getContext('2d');
     new Chart(timelineCtx, {
         type: 'line',
@@ -471,3 +680,9 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
+
+// Khởi tạo khi trang load
+document.addEventListener('DOMContentLoaded', () => {
+    renderHistory();
+    initFeedbackButtons();
+});

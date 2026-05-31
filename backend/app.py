@@ -95,9 +95,9 @@ async def predict_from_url(url: str = Form(...)):
         text = '\n'.join([line.strip() for line in text.splitlines() if line.strip()])
         
         combined_text = title + ". " + text
-        if len(combined_text) > 1500:
-            combined_text = combined_text[:1500]
-            print(f"📝 Đã cắt text xuống 1500 ký tự")
+        if len(combined_text) > 1000:
+            combined_text = combined_text[:1000]
+            print(f"📝 Đã cắt text xuống 1000 ký tự")
         
         print(f"📝 Text length: {len(combined_text)} chars")
         
@@ -215,7 +215,7 @@ async def predict_combined(image: UploadFile = File(None), text: Optional[str] =
                     if input_shape and len(input_shape) >= 4 and input_shape[1] is not None and input_shape[2] is not None:
                         target_size = (input_shape[1], input_shape[2])
                     else:
-                        target_size = (224, 224)
+                        target_size = (128, 128)
                     
                     img_resized = cv2.resize(original_image, target_size)
                     img_array = np.expand_dims(img_resized / 255.0, axis=0).astype(np.float32)

@@ -9,7 +9,7 @@ image_model_path = "./Models/ela_tampering_model.keras"
 
 # Biến global cho mô hình image
 image_model = None
-THRESHOLD = 0.7 # Ngưỡng phát hiển ảnh giả (tăng để giảm false positive)
+THRESHOLD = 0.55 # Ngưỡng phát hiển ảnh giả (tăng để giảm false positive)
 
 def load_image_model():
     global image_model
@@ -84,9 +84,8 @@ def generate_ela_image(content: bytes) -> str:
     return base64.b64encode(buffer).decode('utf-8')
     
 
-def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
+def generate_gradcam_heatmap(model, img_array, last_conv_layer_name=None):
     """Tạo heatmap để khoanh vùng vùng bị chỉnh sửa"""
-    
     if last_conv_layer_name is None:
         for layer in reversed(model.layers):
             if 'conv' in layer.name.lower():
@@ -95,6 +94,7 @@ def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
                 break
     if last_conv_layer_name is None:
         raise ValueError("Không tìm thấy conv layer trong model")
+        return np.zeros((img_array.shape[1], img_array.shape[2]))
     
     # Model mới để lấy gradient
     grad_model = tf.keras.models.Model(
@@ -111,7 +111,7 @@ def generate_gradcam_heatmap(model, img_array, last_conv_layer_name='conv2d_3'):
         
     grads = tape.gradient(loss, conv_output)
     if grads is None:
-        print("Không tính được gradient")
+        print("Gradient là None, bỏ qua heatmap")
         return np.zeros((img_array.shape[1], img_array.shape[2]))
     
     weights = tf.reduce_mean(grads, axis=(1,2))
